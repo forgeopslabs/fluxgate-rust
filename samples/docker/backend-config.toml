@@ -1,0 +1,9 @@
+# FluxGate backend settings for the sample stack (docker-compose.yml).
+# The admin UI runs on http://localhost:38000 and calls the API on port 38080.
+allowed_origin = "http://localhost:38000"
+http_addr = "0.0.0.0:8080"
+grpc_addr = "0.0.0.0:50051"
+
+[auth]
+access_token_ttl_minutes = 30
+refresh_token_ttl_days = 7

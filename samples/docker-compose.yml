@@ -1,0 +1,78 @@
+# A self-contained FluxGate stack for the samples: Postgres, backend, admin UI
+# and edge server. It uses its own ports and volume, so it runs next to any
+# other FluxGate install on this machine.
+#
+#   Admin UI          http://localhost:38000
+#   Backend REST API  http://localhost:38080/api/v1   (gRPC on 35051)
+#   Edge server       http://localhost:38081          (the samples talk to this)
+#
+# Start:  docker compose -f samples/docker-compose.yml up -d
+# Edge:   after you created a client, put its SDK key in samples/.env, then
+#         docker compose -f samples/docker-compose.yml --profile edge up -d edge
+# Reset:  docker compose -f samples/docker-compose.yml --profile edge down -v
+#
+# On Apple Silicon set FLUXGATE_BACKEND_TAG=v1.2.2-arm64 and
+# FLUXGATE_EDGE_TAG=v1.2.2-arm64 in samples/.env to skip x86 emulation.
+name: fluxgate-rust-samples
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: fluxgate-samples
+      POSTGRES_DB: feature_toggle
+    volumes:
+      - rust_samples_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d feature_toggle"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    image: keaz/flux-gate-backend:${FLUXGATE_BACKEND_TAG:-v1.2.2}
+    environment:
+      DATABASE_URL: postgres://postgres:fluxgate-samples@postgres:5432/feature_toggle
+    volumes:
+      - ./docker/backend-config.toml:/app/config/config.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:38080:8080"
+      - "127.0.0.1:35051:50051"
+
+  ui:
+    image: keaz/flux-gate-ui:${FLUXGATE_UI_TAG:-v1.2.0}
+    environment:
+      # The browser calls the backend through the host port.
+      BACKEND_HOST: localhost
+      BACKEND_PORT: "38080"
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:38000:80"
+
+  edge:
+    image: keaz/flux-gate-edge:${FLUXGATE_EDGE_TAG:-v1.2.2}
+    profiles: ["edge"]
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      EDGE_BACKEND_GRPC: http://backend:50051
+      EDGE_HTTP_ADDR: 0.0.0.0:8081
+    # The edge uses the client in FLUXGATE_SDK_KEY (<clientId>.<apiKey>) as its own identity.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        export EDGE_CLIENT_ID="$${FLUXGATE_SDK_KEY%%.*}" EDGE_CLIENT_SECRET="$${FLUXGATE_SDK_KEY#*.}";
+        exec feature-edge-server
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:38081:8081"
+
+volumes:
+  rust_samples_pg:

@@ -1,0 +1,15 @@
+[package]
+name = "axum-sample"
+description = "FluxGate Rust SDK sample: per-request flag evaluation in an axum web service"
+version = "0.0.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+axum = "0.8"
+fluxgate = { path = "../../fluxgate" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.40", features = ["macros", "rt-multi-thread", "net"] }

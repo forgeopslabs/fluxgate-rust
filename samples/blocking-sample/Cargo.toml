@@ -1,0 +1,11 @@
+[package]
+name = "blocking-sample"
+description = "FluxGate Rust SDK sample: the blocking client, without an async runtime"
+version = "0.0.0"
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+fluxgate = { path = "../../fluxgate", features = ["blocking"] }
