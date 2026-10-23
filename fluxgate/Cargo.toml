@@ -1,0 +1,44 @@
+[package]
+name = "fluxgate"
+# The release workflow sets the version from the GitHub release tag.
+version = "0.0.0-dev"
+description = "Client for the FluxGate feature toggle edge server, over OFREP, with an optional OpenFeature provider"
+readme = "README.md"
+keywords = ["feature-flags", "feature-toggles", "openfeature", "ofrep", "fluxgate"]
+categories = ["web-programming::http-client", "config"]
+documentation = "https://docs.rs/fluxgate"
+homepage = "https://github.com/forgeopslabs/fluxgate-rust"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rustls"]
+## TLS through rustls, with the platform's certificate verifier.
+rustls = ["reqwest/rustls"]
+## TLS through the operating system's native library instead of rustls.
+native-tls = ["reqwest/native-tls"]
+## A synchronous client, `fluxgate::blocking`, for code without an async runtime.
+blocking = ["tokio/rt-multi-thread"]
+## An OpenFeature provider, `fluxgate::openfeature::FluxGateProvider`.
+openfeature = ["dep:open-feature", "dep:time"]
+
+[dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["http2", "system-proxy"] }
+serde = "1.0.200"
+serde_json = "1.0.116"
+thiserror = "2"
+tokio = { version = "1.40", features = ["rt", "sync", "time"] }
+# open-feature 0.3.0 does not compile without its default features.
+open-feature = { version = "0.3", optional = true }
+time = { version = "0.3.36", features = ["formatting"], optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.40", features = ["macros", "rt-multi-thread", "test-util"] }
+wiremock = "0.6"
+time = { version = "0.3.36", features = ["macros"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

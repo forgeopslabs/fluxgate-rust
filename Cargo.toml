@@ -1,0 +1,9 @@
+[workspace]
+members = ["fluxgate", "samples/cli-sample", "samples/blocking-sample", "samples/axum-sample"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/forgeopslabs/fluxgate-rust"
