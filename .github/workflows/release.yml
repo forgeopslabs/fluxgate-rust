@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: read
+      # crates.io trusted publishing exchanges this job's OIDC token for a publish token.
+      id-token: write
+    env:
+      CARGO_TERM_COLOR: always
+      HAS_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Set the version from the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Tag $GITHUB_REF_NAME is not v<semver>" >&2
+            exit 1
+          fi
+          sed -i "s/^version = \"0.0.0-dev\"$/version = \"$VERSION\"/" fluxgate/Cargo.toml
+          grep -q "^version = \"$VERSION\"$" fluxgate/Cargo.toml
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - run: cargo test -p fluxgate --all-features
+
+      - name: Check whether the version is already published
+        id: published
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            -A "fluxgate-rust release (github.com/forgeopslabs/fluxgate-rust)" \
+            "https://crates.io/api/v1/crates/fluxgate/$VERSION")
+          if [ "$status" = 200 ]; then
+            echo "fluxgate $VERSION is already published; skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Authenticate with crates.io trusted publishing
+        id: auth
+        if: steps.published.outputs.skip != 'true' && env.HAS_TOKEN != 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish
+        if: steps.published.outputs.skip != 'true'
+        # --allow-dirty: the version was set above.
+        run: cargo publish -p fluxgate --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN }}
